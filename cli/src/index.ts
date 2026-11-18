@@ -214,13 +214,17 @@ async function runTest(opts: Opts): Promise<Result> {
     const showLoaded = () => {
       if (loadedSamples.length) st.loaded = median(loadedSamples);
     };
-    let pinger = opts.simple ? null : startLoadedPinger(nearest);
-    const down = await measureDownload(session.targets, {
-      ...phaseOpts,
-      onProgress: (p) => Object.assign(st.down!, { mbps: p.mbps, series: p.series }),
-    });
+    const downPinger = opts.simple ? null : startLoadedPinger(nearest);
+    let down: Awaited<ReturnType<typeof measureDownload>>;
+    try {
+      down = await measureDownload(session.targets, {
+        ...phaseOpts,
+        onProgress: (p) => Object.assign(st.down!, { mbps: p.mbps, series: p.series }),
+      });
+    } finally {
+      if (downPinger) loadedSamples.push(...(await downPinger.stop()));
+    }
     Object.assign(st.down, { mbps: down.mbps, series: down.series, done: true });
-    if (pinger) loadedSamples.push(...(await pinger.stop()));
     showLoaded();
     st.bytes += down.bytes;
 
@@ -228,14 +232,17 @@ async function runTest(opts: Opts): Promise<Result> {
     if (opts.upload && !opts.simple) {
       st.phase = "upload";
       st.up = { mbps: 0, series: [], done: false };
-      pinger = startLoadedPinger(nearest);
-      up = await measureUpload(session.targets, {
-        ...phaseOpts,
-        connections: Math.max(1, Math.ceil(opts.connections / 2)),
-        onProgress: (p) => Object.assign(st.up!, { mbps: p.mbps, series: p.series }),
-      });
+      const upPinger = startLoadedPinger(nearest);
+      try {
+        up = await measureUpload(session.targets, {
+          ...phaseOpts,
+          connections: Math.max(1, Math.ceil(opts.connections / 2)),
+          onProgress: (p) => Object.assign(st.up!, { mbps: p.mbps, series: p.series }),
+        });
+      } finally {
+        loadedSamples.push(...(await upPinger.stop()));
+      }
       Object.assign(st.up, { mbps: up.mbps, series: up.series, done: true });
-      loadedSamples.push(...(await pinger.stop()));
       showLoaded();
       st.bytes += up.bytes;
     }

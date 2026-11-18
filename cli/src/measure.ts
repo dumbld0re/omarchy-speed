@@ -163,11 +163,12 @@ export function measureUpload(targets: Target[], opts: RunOpts): Promise<Through
   );
 }
 
-async function ping(target: Target): Promise<number> {
+async function ping(target: Target, abort?: AbortSignal): Promise<number> {
   const t = performance.now();
+  const timeout = AbortSignal.timeout(5000);
   const res = await fetch(rangeUrl(target, 0), {
     headers: { "user-agent": UA },
-    signal: AbortSignal.timeout(5000),
+    signal: abort ? AbortSignal.any([abort, timeout]) : timeout,
   });
   await res.arrayBuffer();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -199,28 +200,39 @@ function summarize(xs: number[]): Latency {
   return { ms: median(xs), jitter, samples: xs };
 }
 
-/** Pings repeatedly while a throughput test runs, to measure latency under load. */
+/** Pings repeatedly while a throughput test runs, to measure latency under load.
+ *  Always call stop() (e.g. in a finally block): it ends the loop, aborts any
+ *  in-flight request and waits for the worker to exit. */
 export function startLoadedPinger(target: Target, onSample?: (ms: number) => void) {
-  let running = true;
+  const ctrl = new AbortController();
   const xs: number[] = [];
+  const pause = (ms: number) =>
+    new Promise<void>((resolve) => {
+      if (ctrl.signal.aborted) return resolve();
+      const t = setTimeout(resolve, ms);
+      ctrl.signal.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
+    });
   const loop = (async () => {
-    await Bun.sleep(800); // let the link saturate first
-    while (running) {
+    await pause(800); // let the link saturate first
+    while (!ctrl.signal.aborted) {
       try {
-        const ms = await ping(target);
-        if (running) {
+        const ms = await ping(target, ctrl.signal);
+        if (!ctrl.signal.aborted) {
           xs.push(ms);
           onSample?.(median(xs));
         }
       } catch {}
-      await Bun.sleep(200);
+      await pause(200);
     }
   })();
+  let stopped: Promise<number[]> | null = null;
   return {
-    async stop(): Promise<number[]> {
-      running = false;
-      await Promise.race([loop, Bun.sleep(500)]);
-      return xs;
+    stop(): Promise<number[]> {
+      if (!stopped) {
+        ctrl.abort();
+        stopped = loop.then(() => xs.slice());
+      }
+      return stopped;
     },
   };
 }
