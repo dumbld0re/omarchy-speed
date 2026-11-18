@@ -10,8 +10,8 @@ bun=$(command -v bun 2>/dev/null)
 [ -z "$bun" ] && [ -x "$HOME/.bun/bin/bun" ] && bun="$HOME/.bun/bin/bun"
 
 if [ -z "$bun" ]; then
-  echo '{"event":"error","message":"Needs Bun: omarchy pkg add bun"}'
-  echo "speed: Bun is not installed. Run: omarchy pkg add bun" >&2
+  echo '{"event":"error","message":"Needs Bun, see README"}'
+  echo "speed: Bun is not installed (see the plugin README)" >&2
   exit 127
 fi
 

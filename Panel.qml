@@ -105,7 +105,7 @@ Panel {
       }
     }
     onExited: function(code) {
-      if (code === 127) root.error = "Needs Bun: omarchy pkg add bun"
+      if (code === 127) root.error = "Needs Bun, see README"
     }
   }
 
