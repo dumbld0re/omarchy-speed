@@ -18,7 +18,7 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  // bin/speed uses ~/.local/bin/speed when present, else runs cli/ with Bun.
+  // bin/speed runs only the CLI bundled in cli/ (dist/speed if built, else the source with Bun).
   readonly property string bin: Qt.resolvedUrl("bin/speed").toString().replace("file://", "")
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color accent: Color.accent

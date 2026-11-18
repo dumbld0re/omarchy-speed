@@ -11,7 +11,7 @@ speed watch 30m --below 5   # log every 30 min, notify if under 5 Mbps
 speed --json          # machine-readable
 ```
 
-Build: `bun run install-bin` (compiles a single binary to `~/.local/bin/speed`).
+Build: `bun run build` (compiles a single binary to `dist/speed`, inside this folder). The bar widget uses it automatically when present.
 History lives in `~/.local/share/fast-cli/history.db` (SQLite).
 
 ### How it measures

@@ -13,14 +13,14 @@ omarchy plugin add https://github.com/dumbld0re/omarchy-speed.git --enable
 
 Or open **Settings → Plugins**, enable **Speed**, and place it in a bar section.
 
-Optional: compile the CLI into one binary so it starts faster and can be used in a terminal:
+Optional: compile the bundled CLI into one binary so tests start faster:
 
 ```sh
 cd ~/.config/omarchy/plugins/danny-miguel.speed/cli
-bun run install-bin   # installs ~/.local/bin/speed
+bun run build   # writes cli/dist/speed inside the plugin folder
 ```
 
-The widget uses `~/.local/bin/speed` when it exists. Otherwise it runs the bundled source in `cli/` with Bun.
+The widget only ever runs the CLI bundled in this plugin: `cli/dist/speed` if you built it, otherwise `cli/src/index.ts` with Bun. It never uses or touches a `speed` command installed elsewhere on your system.
 
 ## Use
 
@@ -48,7 +48,12 @@ The bundled `speed` CLI (`cli/`) connects directly to the Netflix servers that f
 
 ```sh
 omarchy plugin remove danny-miguel.speed
-rm -rf ~/.local/share/fast-cli ~/.cache/fast-cli ~/.local/bin/speed
+```
+
+This removes the plugin folder, including any `cli/dist/speed` you built. Your test history is kept. To delete it too, check that nothing else uses these folders (a standalone install of the same CLI shares them), then:
+
+```sh
+rm -rf ~/.local/share/fast-cli ~/.cache/fast-cli
 ```
 
 ## License

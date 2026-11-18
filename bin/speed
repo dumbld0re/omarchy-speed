@@ -1,11 +1,14 @@
 #!/bin/sh
-# Runs the bundled `speed` CLI. Prefers a compiled binary on ~/.local/bin,
-# otherwise runs the TypeScript source in ../cli with Bun.
-if [ -x "$HOME/.local/bin/speed" ]; then
-  exec "$HOME/.local/bin/speed" "$@"
+# Runs the `speed` CLI bundled with this plugin, never one from elsewhere on
+# the system. Uses the optional compiled binary at ../cli/dist/speed (built by
+# `bun run build` inside cli/), otherwise runs ../cli/src/index.ts with Bun.
+here=$(dirname "$(readlink -f "$0")")
+cli="$here/../cli"
+
+if [ -x "$cli/dist/speed" ]; then
+  exec "$cli/dist/speed" "$@"
 fi
 
-here=$(dirname "$(readlink -f "$0")")
 bun=$(command -v bun 2>/dev/null)
 [ -z "$bun" ] && [ -x "$HOME/.bun/bin/bun" ] && bun="$HOME/.bun/bin/bun"
 
@@ -15,4 +18,4 @@ if [ -z "$bun" ]; then
   exit 127
 fi
 
-exec "$bun" "$here/../cli/src/index.ts" "$@"
+exec "$bun" "$cli/src/index.ts" "$@"
