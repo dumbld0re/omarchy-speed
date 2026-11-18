@@ -7,9 +7,11 @@
   "license": "MIT",
   "description": "Internet speed in the bar via fast.com: live download/upload tests, latency, bufferbloat grade and history.",
   "kinds": [
+    "service",
     "bar-widget"
   ],
   "entryPoints": {
+    "service": "Service.qml",
     "barWidget": "Panel.qml"
   },
   "barWidget": {

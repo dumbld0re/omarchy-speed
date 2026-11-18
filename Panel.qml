@@ -18,8 +18,6 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  // bin/speed runs only the CLI bundled in cli/ (dist/speed if built, else the source with Bun).
-  readonly property string bin: Qt.resolvedUrl("bin/speed").toString().replace("file://", "")
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color accent: Color.accent
   readonly property color urgent: bar ? bar.urgent : Color.urgent
@@ -27,13 +25,36 @@ Panel {
   readonly property color faint: Qt.darker(foreground, 2.6)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  property var results: []                 // oldest → newest
-  readonly property var last: results.length ? results[results.length - 1] : null
-  property bool running: false
-  property string phase: ""                // connect | latency | download | upload | done
-  property var live: ({})
-  property string error: ""
-  property real now: Date.now()
+  // Shared state lives in Service.qml (one per session); this widget only
+  // displays it, so several monitors never run tests at the same time.
+  property var service: null
+  function findService() {
+    if (!service && bar && bar.shell && typeof bar.shell.serviceFor === "function")
+      service = bar.shell.serviceFor("danny-miguel.speed")
+  }
+  onBarChanged: findService()
+  Component.onCompleted: findService()
+  Timer {
+    interval: 500
+    repeat: true
+    running: root.service === null
+    onTriggered: root.findService()
+  }
+  Binding {
+    when: root.service !== null
+    target: root.service
+    property: "autoTestMinutes"
+    value: root.setting("autoTestMinutes", 0)
+  }
+
+  readonly property var results: service ? service.results : []
+  readonly property var last: service ? service.last : null
+  readonly property bool running: service ? service.running : false
+  readonly property string phase: service ? service.phase : ""
+  readonly property var live: service ? service.live : ({})
+  readonly property string error: service ? service.error : ""
+  readonly property real now: service ? service.now : Date.now()
+  readonly property string bin: service ? service.bin : ""
   readonly property var downs: results.map(function(r) { return r.downloadMbps })
   readonly property real bestDown: Math.max.apply(null, downs.concat([0.001]))
   readonly property real avgDown: downs.reduce(function(a, b) { return a + b }, 0) / Math.max(1, downs.length)
@@ -77,81 +98,16 @@ Panel {
     return t
   }
 
-  // ── processes ──
-  function reload() {
-    if (!historyProc.running) historyProc.running = true
-  }
-
-  function runTest() {
-    if (running) return
-    error = ""
-    live = ({})
-    phase = "connect"
-    running = true
-    testProc.running = true
-  }
+  function reload() { if (service) service.reload() }
+  function runTest() { if (service) service.runTest() }
 
   function openTerminal(args) {
+    if (!bin) return
     Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "'" + bin + "'" + (args ? " " + args : "")])
     root.close()
   }
 
-  Process {
-    id: historyProc
-    command: [root.bin, "history", "--json", "--limit", "24"]
-    stdout: StdioCollector {
-      onStreamFinished: {
-        try { root.results = JSON.parse(text) } catch (e) {}
-      }
-    }
-    onExited: function(code) {
-      if (code === 127) root.error = "Needs Bun, see README"
-    }
-  }
-
-  Process {
-    id: testProc
-    command: [root.bin, "--stream"]
-    stdout: SplitParser {
-      onRead: function(line) {
-        var ev
-        try { ev = JSON.parse(line) } catch (e) { return }
-        if (ev.event === "progress") {
-          root.phase = ev.phase
-          root.live = ev
-        } else if (ev.event === "result") {
-          root.phase = "done"
-          root.live = ev
-        } else if (ev.event === "error") {
-          root.error = ev.message
-        }
-      }
-    }
-    onExited: function(code) {
-      root.running = false
-      if (code !== 0 && root.error === "") root.error = "Test failed"
-      root.reload()
-    }
-  }
-
-  Timer {
-    // Cheap: re-read history (picks up `speed watch` / terminal runs) and refresh "x min ago".
-    interval: 60000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: { root.now = Date.now(); root.reload() }
-  }
-
-  Timer {
-    interval: Math.max(1, root.setting("autoTestMinutes", 0)) * 60000
-    running: root.setting("autoTestMinutes", 0) > 0
-    repeat: true
-    onTriggered: root.runTest()
-  }
-
   onOpenedChanged: if (opened) {
-    now = Date.now()
     reload()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }

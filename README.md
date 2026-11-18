@@ -28,7 +28,7 @@ The widget only ever runs the CLI bundled in this plugin: `cli/dist/speed` if yo
 - In the panel: `r` runs a test, `t` opens the terminal view, `h` shows history.
 - From scripts: `omarchy-shell danny-miguel.speed run`.
 
-Settings: **Test automatically every N minutes** (0 = off) and **Show upload in the bar**.
+Settings: **Test automatically every N minutes** (0 = off) and **Show upload in the bar**. Tests are scheduled once per desktop session by the plugin's service, not once per monitor, and a scheduled test is skipped if a recent result already exists.
 
 ## How it measures
 
